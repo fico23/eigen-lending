@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Lending} from "../src/Lending.sol";
-import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
+import {ERC20Mock} from "@openzeppelin/contracts/mocks/ERC20Mock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OracleMock} from "./mocks/OracleMock.sol";
 import {ILending} from "../src/ILending.sol";
@@ -44,12 +44,12 @@ contract CounterTest  is BLSMockAVSDeployer {
     event Repayed(address user, uint256 assets, uint256 shares);
 
     function setUp() public {
-        collateralToken = new ERC20Mock();
+        collateralToken = new ERC20Mock("COLLATERAL", "COLLATERAL", address(this), 0);
         collateralToken.mint(address(this), USER_COLLATERAL_BALANCE);
         collateralToken.mint(ALICE, USER_COLLATERAL_BALANCE);
         collateralToken.mint(BOB, USER_COLLATERAL_BALANCE);
 
-        loanToken = new ERC20Mock();
+        loanToken = new ERC20Mock("LOAN", "LOAN", address(this), 0);
         loanToken.mint(address(this), USER_LOANTOKEN_BALANCE);
         loanToken.mint(ALICE, USER_LOANTOKEN_BALANCE);
         loanToken.mint(BOB, USER_LOANTOKEN_BALANCE);
@@ -95,7 +95,7 @@ contract CounterTest  is BLSMockAVSDeployer {
     function test_depositLoanToken(uint256 assets) public {
         vm.assume(assets < USER_LOANTOKEN_BALANCE);
 
-        uint256 expectedShares = assets.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Floor);
+        uint256 expectedShares = assets.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Down);
 
         _depositLoanToken(ALICE, assets, expectedShares);
 
@@ -109,12 +109,12 @@ contract CounterTest  is BLSMockAVSDeployer {
     function test_withdrawLoanToken(uint256 assets) public {
         vm.assume(assets < USER_LOANTOKEN_BALANCE);
 
-        uint256 expectedShares = assets.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Floor);
+        uint256 expectedShares = assets.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Down);
 
         _depositLoanToken(ALICE, assets, expectedShares);
 
         uint256 expectedAssets =
-            expectedShares.mulDiv(assets + VIRTUAL_ASSETS, expectedShares + VIRTUAL_SHARES, Math.Rounding.Floor);
+            expectedShares.mulDiv(assets + VIRTUAL_ASSETS, expectedShares + VIRTUAL_SHARES, Math.Rounding.Down);
 
         _withdrawLoanToken(ALICE, expectedShares, expectedAssets);
 
@@ -135,7 +135,7 @@ contract CounterTest  is BLSMockAVSDeployer {
 
         _depositCollateral(ALICE, assets);
 
-        uint256 expectedShares = expectedMaxBorrow.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Floor);
+        uint256 expectedShares = expectedMaxBorrow.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Down);
         _depositLoanToken(BOB, expectedMaxBorrow, expectedShares);
 
         _borrow(ALICE, expectedMaxBorrow, expectedShares);
@@ -157,7 +157,7 @@ contract CounterTest  is BLSMockAVSDeployer {
 
         _depositCollateral(ALICE, assets);
 
-        uint256 expectedShares = expectedMaxBorrow.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Floor);
+        uint256 expectedShares = expectedMaxBorrow.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Down);
         _depositLoanToken(BOB, expectedMaxBorrow, expectedShares);
 
         vm.expectRevert(
@@ -177,7 +177,7 @@ contract CounterTest  is BLSMockAVSDeployer {
 
         _depositCollateral(ALICE, assets);
 
-        uint256 expectedShares = expectedMaxBorrow.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Floor);
+        uint256 expectedShares = expectedMaxBorrow.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Down);
         _depositLoanToken(BOB, expectedMaxBorrow, expectedShares);
 
         _borrow(ALICE, expectedMaxBorrow, expectedShares);
@@ -201,7 +201,7 @@ contract CounterTest  is BLSMockAVSDeployer {
 
         _depositCollateral(ALICE, assets);
 
-        uint256 expectedShares = expectedMaxBorrow.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Floor);
+        uint256 expectedShares = expectedMaxBorrow.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Down);
         _depositLoanToken(BOB, expectedMaxBorrow, expectedShares);
 
         _borrow(ALICE, expectedMaxBorrow, expectedShares);
