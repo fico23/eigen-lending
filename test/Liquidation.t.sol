@@ -66,6 +66,9 @@ contract CounterTest  is BLSMockAVSDeployer {
             PREMIUM_RATE,
             PROTOCOL_FEE
         );
+
+
+        _setUpBLSMockAVSDeployer();
     }
 
     function test_depositCollateral(uint256 assets) public {
