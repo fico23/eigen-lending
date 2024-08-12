@@ -39,9 +39,6 @@ contract Lending is ILending {
     uint256 public totalBorrowShares;
     uint256 public lastUpdate;
     uint256 public fee;
-
-    uint256 _lastInterestAccrualTimestamp;
-    uint256 _interestAnchor;
     mapping(address => Position) internal _userPosition;
 
     error CantBorrowThatMuch(uint256 totalBorrow, uint256 maxBorrow);
@@ -63,6 +60,8 @@ contract Lending is ILending {
         INTEREST_RATE = interestRate;
         PREMIUM_RATE = premiumRate;
         PROTOCOL_FEE = protocolFee;
+
+        lastUpdate = block.timestamp;
     }
 
     function depositCollateral(uint256 assets) external {
@@ -149,13 +148,23 @@ contract Lending is ILending {
         emit Repayed(msg.sender, assets, shares);
     }
 
+    function accrueInterest() external {
+        _accrueInterest();
+    }
+
     function getUserPosition(address user) external view returns (Position memory) {
         return _userPosition[user];
     }
 
     function _accrueInterest() internal {
-        uint256 secondsPassed = block.timestamp - _lastInterestAccrualTimestamp;
-        _interestAnchor *= INTEREST_RATE * secondsPassed / PRECISION;
+        uint256 secondsPassed = block.timestamp - lastUpdate;
+        if (secondsPassed == 0) return;
+
+        // not compounded
+        uint256 interest = totalBorrowAssets * secondsPassed * INTEREST_RATE / PRECISION;
+
+        totalBorrowAssets += interest;
+        totalDepositAssets += interest;
     }
 
     function _toSharesDown(uint256 assets, uint256 totalAssets, uint256 totalShares) internal pure returns (uint256) {

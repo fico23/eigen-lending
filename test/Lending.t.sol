@@ -25,6 +25,12 @@ contract CounterTest is Test {
     uint256 internal constant LTV = 8e17;
     uint256 internal constant VIRTUAL_SHARES = 1e6;
     uint256 internal constant VIRTUAL_ASSETS = 1;
+    // accounts roughly to 10% yearly
+    uint256 internal constant INTEREST_RATE = 3170979198;
+    // 5%
+    uint256 internal constant PREMIUM_RATE = 5e16;
+    // 1%
+    uint256 internal constant PROTOCOL_FEE = 1e16;
 
     address internal constant ALICE = address(0xabcd);
     address internal constant BOB = address(0xdcba);
@@ -50,8 +56,15 @@ contract CounterTest is Test {
         oracle = new OracleMock();
         oracle.setPrice(1e19);
 
-        lending =
-            new Lending(IERC20(address(collateralToken)), IERC20(address(loanToken)), oracle, LTV, 1e17, 5e16, 1e16);
+        lending = new Lending(
+            IERC20(address(collateralToken)),
+            IERC20(address(loanToken)),
+            oracle,
+            LTV,
+            INTEREST_RATE,
+            PREMIUM_RATE,
+            PROTOCOL_FEE
+        );
     }
 
     function test_depositCollateral(uint256 assets) public {
@@ -133,6 +146,26 @@ contract CounterTest is Test {
         assertEq(lending.totalBorrowShares(), expectedShares);
     }
 
+    function test_borrow_revertWith_CantBorrowThatMuch(uint256 assets) public {
+        vm.assume(assets < USER_LOANTOKEN_BALANCE);
+        vm.assume(assets > 10);
+
+        uint256 expectedMaxBorrow = assets * oracle.price() / ORACLE_SCALE * LTV / PRECISION;
+
+        vm.assume(expectedMaxBorrow < USER_LOANTOKEN_BALANCE);
+
+        _depositCollateral(ALICE, assets);
+
+        uint256 expectedShares = expectedMaxBorrow.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Floor);
+        _depositLoanToken(BOB, expectedMaxBorrow, expectedShares);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(Lending.CantBorrowThatMuch.selector, expectedMaxBorrow + 1, expectedMaxBorrow)
+        );
+        vm.prank(ALICE);
+        lending.borrow(expectedMaxBorrow + 1);
+    }
+
     function test_borrowMaxAndRepay(uint256 assets) public {
         vm.assume(assets < USER_LOANTOKEN_BALANCE);
         vm.assume(assets > 10);
@@ -155,6 +188,32 @@ contract CounterTest is Test {
         assertEq(userPosition.borrowShares, 0);
         assertEq(lending.totalBorrowAssets(), 0);
         assertEq(lending.totalBorrowShares(), 0);
+    }
+
+    function test_interestAccrual(uint256 assets) public {
+        vm.assume(assets < USER_LOANTOKEN_BALANCE);
+        vm.assume(assets > 10);
+
+        uint256 expectedMaxBorrow = assets * oracle.price() / ORACLE_SCALE * LTV / PRECISION;
+
+        vm.assume(expectedMaxBorrow < USER_LOANTOKEN_BALANCE);
+
+        _depositCollateral(ALICE, assets);
+
+        uint256 expectedShares = expectedMaxBorrow.mulDiv(VIRTUAL_SHARES, VIRTUAL_ASSETS, Math.Rounding.Floor);
+        _depositLoanToken(BOB, expectedMaxBorrow, expectedShares);
+
+        _borrow(ALICE, expectedMaxBorrow, expectedShares);
+
+        uint256 timePassed = 10 days;
+        skip(timePassed);
+
+        lending.accrueInterest();
+
+        uint256 interest = timePassed * expectedMaxBorrow * INTEREST_RATE / PRECISION;
+
+        assertEq(lending.totalBorrowAssets(), expectedMaxBorrow + interest);
+        assertEq(lending.totalDepositAssets(), expectedMaxBorrow + interest);
     }
 
     function _repay(address from, uint256 assets, uint256 expectedShares) internal {
