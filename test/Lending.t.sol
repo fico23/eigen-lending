@@ -3,11 +3,11 @@ pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Lending} from "../src/Lending.sol";
-import {ERC20Mock} from "@openzeppelin/mocks/token/ERC20Mock.sol";
-import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
+import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {OracleMock} from "./mocks/OracleMock.sol";
 import {ILending} from "../src/ILending.sol";
-import {Math} from "@openzeppelin/utils/math/Math.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract CounterTest is Test {
     using Math for uint256;
