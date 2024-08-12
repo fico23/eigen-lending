@@ -1,23 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/token/ERC20/IERC20.sol";
-import "@openzeppelin/utils/ReentrancyGuard.sol";
+import {IERC20} from "@openzeppelin/token/ERC20/IERC20.sol";
 import {ILending} from "./ILending.sol";
 import {IOracle} from "./IOracle.sol";
 import {SafeERC20} from "@openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@openzeppelin/utils/math/Math.sol";
 
-contract LendingProtocol is ReentrancyGuard, ILending {
+contract Lending is ILending {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
     uint256 internal constant PRECISION = 1e18;
     uint256 internal constant DOUBLE_PRECISION = 1e36;
+    uint256 internal constant VIRTUAL_SHARES = 1e6;
+    uint256 internal constant VIRTUAL_ASSETS = 1;
 
     IERC20 public immutable COLLATERAL_TOKEN;
     IERC20 public immutable LOAN_TOKEN;
     IOracle public immutable ORACLE;
+    uint256 public immutable ORACLE_SCALE;
     uint256 public immutable LTV;
     uint256 public immutable INTEREST_RATE;
     uint256 public immutable PREMIUM_RATE;
@@ -31,16 +33,18 @@ contract LendingProtocol is ReentrancyGuard, ILending {
     // 1 oracle collateral/borrow <->
     // protocol fee - 1% - calculate on every accrual of interest rates
 
-    uint256 totalDepositAssets;
-    uint256 totalDepositShares;
-    uint256 totalBorrowAssets;
-    uint256 totalBorrowShares;
-    uint256 lastUpdate;
-    uint256 fee;
+    uint256 public totalDepositAssets;
+    uint256 public totalDepositShares;
+    uint256 public totalBorrowAssets;
+    uint256 public totalBorrowShares;
+    uint256 public lastUpdate;
+    uint256 public fee;
 
     uint256 _lastInterestAccrualTimestamp;
     uint256 _interestAnchor;
     mapping(address => Position) internal _userPosition;
+
+    error CantBorrowThatMuch(uint256 totalBorrow, uint256 maxBorrow);
 
     constructor(
         IERC20 collateralToken,
@@ -54,6 +58,7 @@ contract LendingProtocol is ReentrancyGuard, ILending {
         COLLATERAL_TOKEN = collateralToken;
         LOAN_TOKEN = loanToken;
         ORACLE = oracle;
+        ORACLE_SCALE = 10 ** oracle.decimals();
         LTV = ltv;
         INTEREST_RATE = interestRate;
         PREMIUM_RATE = premiumRate;
@@ -85,11 +90,11 @@ contract LendingProtocol is ReentrancyGuard, ILending {
 
         LOAN_TOKEN.safeTransferFrom(msg.sender, address(this), assets);
 
-        uint256 shares = assets.mulDiv(totalDepositShares, totalDepositAssets, Math.Rounding.Floor);
+        uint256 shares = _toSharesDown(assets, totalDepositAssets, totalDepositShares);
 
         _userPosition[msg.sender].depositShares += shares;
-        totalBorrowShares += shares;
-        totalBorrowAssets += assets;
+        totalDepositShares += shares;
+        totalDepositAssets += assets;
 
         emit DepositedLoanToken(msg.sender, assets, shares);
     }
@@ -97,7 +102,7 @@ contract LendingProtocol is ReentrancyGuard, ILending {
     function withdrawLoanToken(uint256 shares) external {
         _accrueInterest();
 
-        uint256 assets = shares.mulDiv(totalDepositAssets, totalDepositShares, Math.Rounding.Floor);
+        uint256 assets = _toAssetsDown(shares, totalDepositAssets, totalDepositShares);
 
         _userPosition[msg.sender].depositShares -= shares;
         totalDepositShares -= shares;
@@ -111,7 +116,15 @@ contract LendingProtocol is ReentrancyGuard, ILending {
     function borrow(uint256 assets) external {
         _accrueInterest();
 
-        uint256 shares = assets.mulDiv(totalDepositShares, totalBorrowAssets, Math.Rounding.Floor);
+        Position storage position = _userPosition[msg.sender];
+
+        uint256 maxBorrow = position.collateral * ORACLE.price() / ORACLE_SCALE * LTV / PRECISION;
+
+        uint256 totalBorrow = _toAssetsDown(position.borrowShares, totalBorrowAssets, totalBorrowShares) + assets;
+
+        if (totalBorrow > maxBorrow) revert CantBorrowThatMuch(totalBorrow, maxBorrow);
+
+        uint256 shares = _toSharesDown(assets, totalBorrowAssets, totalBorrowShares);
 
         _userPosition[msg.sender].borrowShares += shares;
         totalBorrowShares += shares;
@@ -125,19 +138,31 @@ contract LendingProtocol is ReentrancyGuard, ILending {
     function repay(uint256 assets) external {
         _accrueInterest();
 
-        uint256 shares = assets.mulDiv(totalDepositShares, totalBorrowAssets, Math.Rounding.Floor);
+        uint256 shares = _toSharesDown(assets, totalBorrowAssets, totalDepositShares);
 
         _userPosition[msg.sender].borrowShares -= shares;
         totalBorrowShares -= shares;
         totalBorrowAssets -= assets;
 
-        LOAN_TOKEN.safeTransfer(msg.sender, assets);
+        LOAN_TOKEN.safeTransferFrom(msg.sender, address(this), assets);
 
         emit Repayed(msg.sender, assets, shares);
+    }
+
+    function getUserPosition(address user) external view returns (Position memory) {
+        return _userPosition[user];
     }
 
     function _accrueInterest() internal {
         uint256 secondsPassed = block.timestamp - _lastInterestAccrualTimestamp;
         _interestAnchor *= INTEREST_RATE * secondsPassed / PRECISION;
+    }
+
+    function _toSharesDown(uint256 assets, uint256 totalAssets, uint256 totalShares) internal pure returns (uint256) {
+        return assets.mulDiv(totalShares + VIRTUAL_SHARES, totalAssets + VIRTUAL_ASSETS, Math.Rounding.Floor);
+    }
+
+    function _toAssetsDown(uint256 shares, uint256 totalAssets, uint256 totalShares) internal pure returns (uint256) {
+        return shares.mulDiv(totalAssets + VIRTUAL_ASSETS, totalShares + VIRTUAL_SHARES, Math.Rounding.Floor);
     }
 }

@@ -12,4 +12,6 @@ interface IOracle {
     /// 10**(loan token decimals) assets of loan token with `36 + loan token decimals - collateral token decimals`
     /// decimals of precision.
     function price() external view returns (uint256);
+
+    function decimals() external view returns (uint8);
 }

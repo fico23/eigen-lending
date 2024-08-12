@@ -1,0 +1,6 @@
+CounterTest:test_borrowMax(uint256) (runs: 258, μ: 297325, ~: 297325)
+CounterTest:test_borrowMaxAndRepay(uint256) (runs: 258, μ: 332533, ~: 332537)
+CounterTest:test_depositCollateral(uint256) (runs: 258, μ: 96022, ~: 96848)
+CounterTest:test_depositLoanToken(uint256) (runs: 258, μ: 143383, ~: 144980)
+CounterTest:test_withdrawCollateral(uint256) (runs: 258, μ: 99147, ~: 99776)
+CounterTest:test_withdrawLoanToken(uint256) (runs: 258, μ: 140162, ~: 141361)
