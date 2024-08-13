@@ -12,11 +12,7 @@ import {OperatorStateRetriever} from "eigenlayer-middleware/src/OperatorStateRet
 import "eigenlayer-middleware/src/libraries/BN254.sol";
 import {ILending} from "./ILending.sol";
 
-contract LiquidationManager is
-    Pausable,
-    BLSSignatureChecker,
-    OperatorStateRetriever
-{
+contract LiquidationManager is Pausable, BLSSignatureChecker, OperatorStateRetriever {
     using BN254 for BN254.G1Point;
 
     address public aggregator;
@@ -27,18 +23,17 @@ contract LiquidationManager is
         _;
     }
 
-    constructor(
-        IRegistryCoordinator _registryCoordinator,
-        address _aggregator
-    ) BLSSignatureChecker(_registryCoordinator) {
+    constructor(IRegistryCoordinator _registryCoordinator, address _aggregator)
+        BLSSignatureChecker(_registryCoordinator)
+    {
         aggregator = _aggregator;
     }
 
     // NOTE: this function responds to existing tasks.
-    function liquidate(
-        address user,
-        NonSignerStakesAndSignature memory nonSignerStakesAndSignature
-    ) external onlyAggregator {
+    function liquidate(address user, NonSignerStakesAndSignature memory nonSignerStakesAndSignature)
+        external
+        onlyAggregator
+    {
         // uint32 taskCreatedBlock = task.taskCreatedBlock;
         // bytes calldata quorumNumbers = task.quorumNumbers;
         // uint32 quorumThresholdPercentage = task.quorumThresholdPercentage;

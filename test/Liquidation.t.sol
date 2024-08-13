@@ -10,7 +10,7 @@ import {ILending} from "../src/ILending.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {BLSMockAVSDeployer} from "eigenlayer-middleware/test/utils/BLSMockAVSDeployer.sol";
 
-contract CounterTest  is BLSMockAVSDeployer {
+contract CounterTest is BLSMockAVSDeployer {
     using Math for uint256;
 
     ERC20Mock public collateralToken;
@@ -66,7 +66,6 @@ contract CounterTest  is BLSMockAVSDeployer {
             PREMIUM_RATE,
             PROTOCOL_FEE
         );
-
 
         _setUpBLSMockAVSDeployer();
     }
